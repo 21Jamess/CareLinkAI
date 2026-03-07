@@ -1,28 +1,37 @@
 package com.example.carelinkai.data
 
-// R3 - fake version of the AI so we can demo without needing real API keys
-// uses regex to parse goals from text; will be replaced by real OpenAI calls in R8
-
+// R3 - fake AI that parses multiple goal types from care plan text
+// Extracts steps, water, and calorie targets via regex; falls back to safe defaults
 
 class FakeAiRepository : AiRepository {
 
     override suspend fun processText(text: String): AiResult {
 
-        // try to find something like "5000 steps" in the text
-        val stepsRegex = Regex("""(\d+)\s*steps""", RegexOption.IGNORE_CASE)
-        val match = stepsRegex.find(text)
-        val stepsTarget = match?.groupValues?.get(1)?.toIntOrNull() ?: 5000
+        val stepsTarget = Regex("""(\d+)\s*steps""", RegexOption.IGNORE_CASE)
+            .find(text)?.groupValues?.get(1)?.toIntOrNull() ?: 5000
 
-        // build a realistic looking response
+        val waterTarget =
+            Regex("""(\d+)\s*(?:glasses|cups)\s*(?:of\s*)?water""", RegexOption.IGNORE_CASE)
+                .find(text)?.groupValues?.get(1)?.toIntOrNull()
+                ?: Regex("""(\d+)\s*oz\s*(?:of\s*)?(?:water|fluid)""", RegexOption.IGNORE_CASE)
+                    .find(text)?.groupValues?.get(1)?.toIntOrNull()
+                ?: 8
+
+        val caloriesTarget =
+            Regex("""(\d[\d,]*)\s*(?:calories|kcal|cal)\b""", RegexOption.IGNORE_CASE)
+                .find(text)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull() ?: 2000
+
         return AiResult(
             goals = listOf(
-                Goal(type = "steps", target = stepsTarget, frequency = "daily")
+                Goal(type = "steps",    target = stepsTarget,    frequency = "daily"),
+                Goal(type = "water",    target = waterTarget,    frequency = "daily"),
+                Goal(type = "calories", target = caloriesTarget, frequency = "daily")
             ),
-            doctorSummary = "Patient should maintain an active lifestyle with a daily goal of " +
-                "$stepsTarget steps. Diet should focus on low sodium and high fiber intake. " +
-                "Follow-up recommended in 4 weeks to assess progress.",
-            patientReminder = "Remember to reach your daily goal of $stepsTarget steps! " +
-                "Stay active and keep track of your progress."
+            doctorSummary = "Patient should aim for $stepsTarget steps, $waterTarget glasses of " +
+                "water, and $caloriesTarget calories daily. Diet should focus on low sodium and " +
+                "high fiber intake. Follow-up recommended in 4 weeks to assess progress.",
+            patientReminder = "Stay on track with your daily goals: $stepsTarget steps, " +
+                "$waterTarget glasses of water, and $caloriesTarget calories!"
         )
     }
 }
